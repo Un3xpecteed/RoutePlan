@@ -1,0 +1,23 @@
+# Виртуальные окружения
+.venv/
+env/
+venv/
+
+# Файлы с переменными окружения
+.env
+
+# Папки служебные Python пакетов
+*.egg-info/
+
+# Кэш Python
+__pycache__/
+*.py[cod]
+
+# Логи
+*.log
+
+# VS Code
+.vscode/
+
+# macOS системные файлы
+.DS_Store
