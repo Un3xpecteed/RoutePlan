@@ -1,0 +1,7 @@
+django>=5.2.1
+psycopg2-binary>=2.9.10
+python-dotenv>=1.1.0
+
+[dev]
+ruff
+black
