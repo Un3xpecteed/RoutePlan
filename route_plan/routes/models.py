@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -40,7 +41,7 @@ class Route(models.Model):
 
     name = models.CharField("Название маршрута", max_length=150)
     created_by = models.ForeignKey(
-        "auth.User",
+        settings.AUTH_USER_MODEL,
         verbose_name="Создатель",
         on_delete=models.SET_NULL,
         null=True,

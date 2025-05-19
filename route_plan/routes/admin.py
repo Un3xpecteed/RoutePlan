@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from app.models import Port, Route, RouteWaypoint, Segment
+from routes.models import Port, Route, RouteWaypoint, Segment
 
 
 @admin.register(Port)
