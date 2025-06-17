@@ -23,7 +23,10 @@ fi
 echo "PostgreSQL is up - continuing..."
 
 echo "Applying database migrations..."
-python manage.py migrate --noinput # Python из venv должен быть найден через PATH
+python manage.py migrate --noinput
 
-echo "Starting application with command: $@"
-exec "$@"
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
+
+# ЭТА СТРОКА ОЧЕНЬ ВАЖНА: СКРИПТ ПРОСТО ЗАВЕРШАЕТСЯ ЗДЕСЬ.
+# НЕ ДОБАВЛЯЙТЕ СЮДА exec "$@" ИЛИ exec gunicorn

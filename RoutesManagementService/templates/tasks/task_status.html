@@ -1,115 +1,185 @@
+{# RoutesManagementService/templates/tasks/task_status.html #}
 {% extends "base.html" %}
 {% load l10n %} {# Для форматирования чисел, если нужно #}
 
 {% block title %}Статус задачи: {{ task_db_obj.task_id|truncatechars:15 }}...{% endblock %}
 
 {% block content %}
-<h2>Статус задачи <span id="task-id-display">{{ task_db_obj.task_id }}</span></h2>
-
-<div class="task-details">
-    <p><strong>ID Задачи:</strong> <span id="task-id-data">{{ task_data.task_id }}</span></p>
-    <p><strong>От:</strong> <span id="start-port-name">{{ task_data.start_port_name }}</span></p>
-    <p><strong>До:</strong> <span id="end-port-name">{{ task_data.end_port_name }}</span></p>
-    <p><strong>Статус:</strong> <strong id="task-status-display">{{ task_data.status_display }}</strong></p>
-    <p><strong>Создана:</strong> <span id="created-at">{{ task_data.created_at|date:"d.m.Y H:i:s" }}</span></p>
-    <p><strong>Обновлена:</strong> <span id="updated-at">{{ task_data.updated_at|date:"d.m.Y H:i:s" }}</span></p>
-    <p><small>Источник данных: <span id="data-source">{{ task_data.source }}</span></small></p>
-</div>
-
-<div id="result-container">
-    {% if task_data.status_code == "COMPLETED" %}
-        <h3>Результаты расчета:</h3>
-        <p><strong>Общее расстояние:</strong> 
-           <span id="result-distance">
-             {% if task_data.result_distance is not None %}
-               {{ task_data.result_distance|floatformat:2 }} морских миль
-             {% else %}
-               N/A
-             {% endif %}
-           </span>
-        </p>
-        <h4>Маршрут:</h4>
-        <ul id="result-path-list">
-            {% if task_data.result_path_details %}
-                {% for port_detail in task_data.result_path_details %}
-                    <li>{{ port_detail.name }} (ID: {{ port_detail.id }})</li>
-                {% endfor %}
-            {% else %}
-                <li>Путь не определен.</li>
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">Статус задачи <small class="text-white-50" id="task-id-display">{{ task_db_obj.task_id }}</small></h2>
+    </div>
+    <div class="card-body">
+        <div class="task-details mb-4">
+            <p><strong>ID Задачи:</strong> <span id="task-id-data" class="highlight-text">{{ task_data.task_id }}</span></p>
+            <p><strong>От:</strong> <span id="start-port-name">{{ task_data.start_port_name }}</span></p>
+            <p><strong>До:</strong> <span id="end-port-name">{{ task_data.end_port_name }}</span></p>
+            {% if task_data.vessel_speed_knots %}
+            <p><strong>Скорость судна:</strong> <span>{{ task_data.vessel_speed_knots|floatformat:1 }} узлов</span></p>
             {% endif %}
-        </ul>
-    {% elif task_data.status_code == "FAILED" %}
-        <h3>Ошибка выполнения задачи:</h3>
-        <p style="color: red;" id="error-message-display">{{ task_data.error_message|default:"Неизвестная ошибка." }}</p>
-    {% elif task_data.status_code == "PENDING" or task_data.status_code == "PROCESSING" %}
-        <p id="loading-message">Задача в обработке, пожалуйста, подождите... Статус будет обновлен автоматически.</p>
-    {% endif %}
-</div>
+            <p><strong>Статус:</strong>
+                <strong id="task-status-display" class="badge
+                    {% if task_data.status_code == 'COMPLETED' %}bg-success
+                    {% elif task_data.status_code == 'PENDING' %}bg-warning text-dark
+                    {% elif task_data.status_code == 'PROCESSING' %}bg-info text-dark
+                    {% elif task_data.status_code == 'FAILED' %}bg-danger
+                    {% else %}bg-secondary{% endif %}">
+                    {{ task_data.status_display }}
+                </strong>
+            </p>
+            <p><strong>Создана:</strong> <span id="created-at">{{ task_data.created_at|date:"d.m.Y H:i:s" }}</span></p>
+            <p><strong>Обновлена:</strong> <span id="updated-at">{{ task_data.updated_at|date:"d.m.Y H:i:s" }}</span></p>
+            <p><small class="text-muted">Источник данных: <span id="data-source">{{ task_data.source }}</span></small></p>
+        </div>
 
-<p style="margin-top: 20px;">
-    <a href="{% url 'routes:calculate_task_create' %}">Рассчитать другой маршрут</a>
-</p>
+        <div id="result-container">
+            {% if task_data.status_code == "COMPLETED" %}
+                <h3 class="mb-3">Результаты расчета:</h3>
+                <p class="lead"><strong>Общее расстояние:</strong>
+                   <span id="result-distance" class="text-success fw-bold">
+                     {% if task_data.result_distance is not None %}
+                       {{ task_data.result_distance|floatformat:2 }} морских миль
+                     {% else %}
+                       N/A
+                     {% endif %}
+                   </span>
+                </p>
+
+                {# ИЗМЕНЕНА ЛОГИКА ОТОБРАЖЕНИЯ: теперь показываем сегментные дистанции и время #}
+                {% if task_data.result_waypoints_data %}
+                    <h4>Детали маршрута:</h4>
+                    <ul class="list-group mb-3" id="result-waypoints-list">
+                        {% for waypoint in task_data.result_waypoints_data %}
+                            <li class="list-group-item">
+                                <strong>{{ waypoint.port_name }}</strong> (ID: {{ waypoint.port_id }})
+                                {% if forloop.first %}
+                                    - Начало маршрута
+                                {% else %}
+                                    <br>Расстояние от предыдущего порта: {{ waypoint.segment_distance_nm|floatformat:2 }} nm
+                                    <br>Время в пути до этого порта: {{ waypoint.segment_travel_hours|floatformat:2 }} часов
+                                    <br>Общая дистанция от старта: {{ waypoint.total_distance_from_start_nm|floatformat:2 }} nm
+                                    <br>Общее время от старта: {{ waypoint.total_travel_hours_from_start|floatformat:2 }} часов
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% elif task_data.result_path_details %}
+                    <h4>Путь (только порты):</h4>
+                    <ul class="list-group list-group-flush" id="result-path-list">
+                        {% for port_detail in task_data.result_path_details %}
+                            <li class="list-group-item">{{ port_detail.name }} (ID: {{ port_detail.id }})</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-warning">Путь не определен или данные не полны.</p>
+                {% endif %}
+
+            {% elif task_data.status_code == "FAILED" %}
+                <h3 class="text-danger">Ошибка выполнения задачи:</h3>
+                <p class="alert alert-danger" id="error-message-display">{{ task_data.error_message|default:"Неизвестная ошибка." }}</p>
+            {% elif task_data.status_code == "PENDING" or task_data.status_code == "PROCESSING" %}
+                <div class="alert alert-info text-center" role="alert" id="loading-message">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    Задача в обработке, пожалуйста, подождите... Статус будет обновлен автоматически.
+                </div>
+            {% endif %}
+        </div>
+
+        <p class="mt-4">
+            <a href="{% url 'tasks:calculate_task_create' %}" class="btn btn-secondary">Рассчитать другой маршрут</a>
+        </p>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const taskId = "{{ task_db_obj.task_id }}"; // Получаем ID из объекта Django модели
-    const taskStatusCodeField = document.getElementById('task-status-code'); // Не используется в текущем HTML, но может быть полезно
+    const taskId = "{{ task_db_obj.task_id }}";
     const taskStatusDisplayField = document.getElementById('task-status-display');
     const updatedAtField = document.getElementById('updated-at');
     const resultContainer = document.getElementById('result-container');
-    const dataSourceField = document.getElementById('data-source'); // Для отображения источника
-    const loadingMessage = document.getElementById('loading-message');
+    const dataSourceField = document.getElementById('data-source');
 
     let currentStatusCode = "{{ task_data.status_code }}";
 
     function updatePage(data) {
-        if (taskStatusDisplayField) taskStatusDisplayField.textContent = data.status_display;
+        if (taskStatusDisplayField) {
+            taskStatusDisplayField.textContent = data.status_display;
+            taskStatusDisplayField.className = `badge ${
+                data.status_code === 'COMPLETED' ? 'bg-success' :
+                data.status_code === 'PENDING' ? 'bg-warning text-dark' :
+                data.status_code === 'PROCESSING' ? 'bg-info text-dark' :
+                data.status_code === 'FAILED' ? 'bg-danger' : 'bg-secondary'
+            }`;
+        }
         if (updatedAtField) updatedAtField.textContent = new Date(data.updated_at).toLocaleString('ru-RU');
-        if (dataSourceField) dataSourceField.textContent = data.source || 'db'; // Источник данных
+        if (dataSourceField) dataSourceField.textContent = data.source || 'db';
 
         currentStatusCode = data.status_code;
 
         let resultHtml = '';
         if (data.status_code === "COMPLETED") {
-            resultHtml += '<h3>Результаты расчета:</h3>';
-            resultHtml += `<p><strong>Общее расстояние:</strong> <span id="result-distance">${data.result_distance !== null ? parseFloat(data.result_distance).toFixed(2) + ' морских миль' : 'N/A'}</span></p>`;
-            resultHtml += '<h4>Маршрут:</h4><ul id="result-path-list">';
-            if (data.result_path_details && data.result_path_details.length > 0) {
-                data.result_path_details.forEach(port => {
-                    resultHtml += `<li>${port.name} (ID: ${port.id})</li>`;
+            resultHtml += '<h3 class="mb-3">Результаты расчета:</h3>';
+            resultHtml += `<p class="lead"><strong>Общее расстояние:</strong> <span id="result-distance" class="text-success fw-bold">${data.result_distance !== null ? parseFloat(data.result_distance).toFixed(2) + ' морских миль' : 'N/A'}</span></p>`;
+
+            if (data.result_waypoints_data && data.result_waypoints_data.length > 0) {
+                resultHtml += '<h4>Детали маршрута:</h4><ul class="list-group mb-3" id="result-waypoints-list">';
+                data.result_waypoints_data.forEach((waypoint, index) => {
+                    let waypointInfo = `<strong>${waypoint.port_name}</strong> (ID: ${waypoint.port_id})`;
+                    if (index === 0) {
+                        waypointInfo += ' - Начало маршрута';
+                    } else {
+                        waypointInfo += `<br>Расстояние от предыдущего порта: ${parseFloat(waypoint.segment_distance_nm).toFixed(2)} nm`;
+                        waypointInfo += `<br>Время в пути до этого порта: ${parseFloat(waypoint.segment_travel_hours).toFixed(2)} часов`;
+                        waypointInfo += `<br>Общая дистанция от старта: ${parseFloat(waypoint.total_distance_from_start_nm).toFixed(2)} nm`;
+                        waypointInfo += `<br>Общее время от старта: ${parseFloat(waypoint.total_travel_hours_from_start).toFixed(2)} часов`;
+                    }
+                    resultHtml += `<li class="list-group-item">${waypointInfo}</li>`;
                 });
+                resultHtml += '</ul>';
+            } else if (data.result_path_details && data.result_path_details.length > 0) {
+                resultHtml += '<h4>Путь (только порты):</h4><ul class="list-group list-group-flush" id="result-path-list">';
+                data.result_path_details.forEach(port => {
+                    resultHtml += `<li class="list-group-item">${port.name} (ID: ${port.id})</li>`;
+                });
+                resultHtml += '</ul>';
             } else {
-                resultHtml += '<li>Путь не определен.</li>';
+                resultHtml += '<p class="text-warning">Путь не определен или данные не полны.</p>';
             }
-            resultHtml += '</ul>';
-            if (loadingMessage) loadingMessage.style.display = 'none';
+
         } else if (data.status_code === "FAILED") {
-            resultHtml += '<h3>Ошибка выполнения задачи:</h3>';
-            resultHtml += `<p style="color: red;" id="error-message-display">${data.error_message || 'Неизвестная ошибка.'}</p>`;
-            if (loadingMessage) loadingMessage.style.display = 'none';
+            resultHtml += '<h3 class="text-danger">Ошибка выполнения задачи:</h3>';
+            resultHtml += `<p class="alert alert-danger" id="error-message-display">${data.error_message || 'Неизвестная ошибка.'}</p>`;
         } else if (data.status_code === "PENDING" || data.status_code === "PROCESSING") {
-            if (loadingMessage) {
-                 loadingMessage.style.display = 'block';
-                 loadingMessage.textContent = `Задача в обработке (${data.status_display}), пожалуйста, подождите... Статус будет обновлен автоматически.`;
-            } else {
-                 resultHtml = `<p id="loading-message">Задача в обработке (${data.status_display}), пожалуйста, подождите... Статус будет обновлен автоматически.</p>`;
-            }
+            resultHtml = `
+                <div class="alert alert-info text-center" role="alert" id="loading-message">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    Задача в обработке (${data.status_display}), пожалуйста, подождите... Статус будет обновлен автоматически.
+                </div>`;
         }
+
         if(resultContainer) resultContainer.innerHTML = resultHtml;
+
+        if (currentStatusCode === 'COMPLETED' || currentStatusCode === 'FAILED') {
+            clearInterval(pollInterval);
+        }
+    }
+
+    let pollInterval;
+
+    if (currentStatusCode === 'PENDING' || currentStatusCode === 'PROCESSING') {
+        pollInterval = setInterval(fetchStatus, 5000);
     }
 
     function fetchStatus() {
-        if (currentStatusCode === 'COMPLETED' || currentStatusCode === 'FAILED') {
-            // console.log("Задача завершена, опрос остановлен.");
-            return;
-        }
-
-        fetch("{% url 'routes:task_status' task_db_obj.task_id %}", {
+        fetch("{% url 'tasks:task_status' task_db_obj.task_id %}", {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': "{{ csrf_token }}" // Если нужен CSRF для GET AJAX, хотя обычно нет
             }
         })
         .then(response => {
@@ -119,22 +189,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
-            // console.log("Получены данные статуса:", data);
             updatePage(data);
         })
         .catch(error => {
             console.error('Ошибка при получении статуса задачи:', error);
-            // Можно остановить опрос или показать сообщение об ошибке пользователю
+            clearInterval(pollInterval);
         });
     }
 
-    // Инициализация страницы данными, переданными из Django
-    // updatePage({{ task_data_json|safe }}); // Если бы передавали JSON напрямую
-
-    if (currentStatusCode === 'PENDING' || currentStatusCode === 'PROCESSING') {
-        setInterval(fetchStatus, 5000); // Опрашивать каждые 5 секунд
-        // fetchStatus(); // Можно вызвать сразу для обновления, если начальные данные могут быть из Redis
-    }
 });
 </script>
 {% endblock %}

@@ -1,3 +1,5 @@
+# RoutesCalculatorService/db_interface.py
+
 import json
 import os
 from typing import Any, Dict, List, Optional
@@ -15,6 +17,7 @@ from sqlalchemy.exc import (
 from sqlalchemy.orm import sessionmaker
 
 # Загрузка переменных окружения.
+# Ищем .env на один уровень выше (в корне проекта RoutePlan)
 env_path_option = os.path.join(os.path.dirname(__file__), "..", ".env")
 
 if os.path.exists(env_path_option):
@@ -44,7 +47,7 @@ def _get_engine():
     if _engine is None:
         try:
             _engine = create_engine(_DATABASE_URL, pool_pre_ping=True)
-            # print(f"SQLAlchemy engine created for {_DATABASE_URL}")
+            # print(f"SQLAlchemy engine created for {_DATABASE_URL}") # Можно раскомментировать для отладки
         except Exception as e:
             print(f"Error creating SQLAlchemy engine for {_DATABASE_URL}: {e}")
             raise
@@ -73,7 +76,7 @@ def get_port_by_id(port_id: int) -> Optional[Dict[str, Any]]:
     try:
         with get_db_session_new() as db:
             query = text(
-                "SELECT id, name, latitude, longitude FROM ports_port WHERE id = :port_id"  # ИЗМЕНЕНО: apps_ports_port -> ports_port
+                "SELECT id, name, latitude, longitude FROM ports_port WHERE id = :port_id"
             )
             result = db.execute(query, {"port_id": port_id}).fetchone()
             if result:
@@ -89,7 +92,7 @@ def get_port_by_id(port_id: int) -> Optional[Dict[str, Any]]:
         print(f"Database error in get_port_by_id for port_id {port_id}: {e}")
         if isinstance(e, NoSuchTableError):
             print(
-                f"CRITICAL: Table 'ports_port' not found during get_port_by_id for port {port_id}. Check migrations."  # ИЗМЕНЕНО
+                f"CRITICAL: Table 'ports_port' not found during get_port_by_id for port {port_id}. Check migrations."
             )
     except Exception as e:
         print(f"Unexpected error in get_port_by_id for port_id {port_id}: {e}")
@@ -105,7 +108,7 @@ def get_all_ports_for_algorithm() -> List[Dict[str, Any]]:
     try:
         with get_db_session_new() as db:
             query = text(
-                "SELECT id, name, latitude, longitude FROM ports_port ORDER BY id"  # ИЗМЕНЕНО: apps_ports_port -> ports_port
+                "SELECT id, name, latitude, longitude FROM ports_port ORDER BY id"
             )
             results = db.execute(query).fetchall()
             for row in results:
@@ -116,7 +119,7 @@ def get_all_ports_for_algorithm() -> List[Dict[str, Any]]:
         print(f"Database error in get_all_ports_for_algorithm: {e}")
         if isinstance(e, NoSuchTableError):
             print(
-                "CRITICAL: Table 'ports_port' not found during get_all_ports_for_algorithm. Check migrations."  # ИЗМЕНЕНО
+                "CRITICAL: Table 'ports_port' not found during get_all_ports_for_algorithm. Check migrations."
             )
     except Exception as e:
         print(f"Unexpected error in get_all_ports_for_algorithm: {e}")
@@ -141,8 +144,8 @@ def get_segments_for_port(port_id: int) -> List[Dict[str, Any]]:
                     p_arrival.name AS arrival_port_name,
                     p_arrival.latitude AS arrival_port_latitude,
                     p_arrival.longitude AS arrival_port_longitude
-                FROM ports_segment s  -- ИЗМЕНЕНО: apps_ports_segment -> ports_segment
-                JOIN ports_port p_arrival ON s."PortOfArrival_id" = p_arrival.id -- ИЗМЕНЕНО: apps_ports_port -> ports_port
+                FROM ports_segment s
+                JOIN ports_port p_arrival ON s."PortOfArrival_id" = p_arrival.id
                 WHERE s."PortOfDeparture_id" = :port_id
             """)
             results = db.execute(query, {"port_id": port_id}).fetchall()
@@ -170,7 +173,7 @@ def get_segments_for_port(port_id: int) -> List[Dict[str, Any]]:
         print(f"Database error in get_segments_for_port for port_id {port_id}: {e}")
         if isinstance(e, NoSuchTableError):
             print(
-                f"CRITICAL: Table 'ports_segment' not found during get_segments_for_port for port {port_id}. Check migrations."  # ИЗМЕНЕНО
+                f"CRITICAL: Table 'ports_segment' not found during get_segments_for_port for port {port_id}. Check migrations."
             )
     except Exception as e:
         print(f"Unexpected error in get_segments_for_port for port_id {port_id}: {e}")
@@ -218,23 +221,21 @@ def check_db_connection():
             SELECT EXISTS (
                 SELECT 1
                 FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = 'ports_port' -- ИЗМЕНЕНО: apps_ports_port -> ports_port
+                WHERE table_schema = 'public' AND table_name = 'ports_port'
             );
         """)
         table_exists = cursor.fetchone()[0]
 
         if table_exists:
-            print("Table 'ports_port' found via direct psycopg2 check.")  # ИЗМЕНЕНО
+            print("Table 'ports_port' found via direct psycopg2 check.")
             # Теперь, когда мы знаем, что таблица существует, выполним запрос через SQLAlchemy
             # чтобы убедиться, что основной функционал работает.
             # Это может быть избыточно, но помогает убедиться, что SQLAlchemy не падает по другим причинам.
             with get_db_session_new() as db:
-                db.execute(
-                    text("SELECT 1 FROM ports_port LIMIT 1")
-                )  # ИЗМЕНЕНО: apps_ports_port -> ports_port
+                db.execute(text("SELECT 1 FROM ports_port LIMIT 1"))
             return True
         else:
-            print("Table 'ports_port' NOT found via direct psycopg2 check.")  # ИЗМЕНЕНО
+            print("Table 'ports_port' NOT found via direct psycopg2 check.")
             return False
 
     except Psycopg2OperationalError as e:
@@ -261,6 +262,8 @@ def update_calculation_task(
     status: str,
     result_path: Optional[List[int]] = None,
     result_distance: Optional[float] = None,
+    result_waypoints_data: Optional[List[Dict[str, Any]]] = None,  # НОВОЕ ПОЛЕ
+    vessel_speed_knots: Optional[float] = None,  # НОВОЕ ПОЛЕ
     error_message: Optional[str] = None,
 ) -> bool:
     """
@@ -270,10 +273,12 @@ def update_calculation_task(
     try:
         with get_db_session_new() as db:
             query = text("""
-                UPDATE tasks_calculationtask -- ИЗМЕНЕНО: apps_tasks_calculationtask -> tasks_calculationtask
+                UPDATE tasks_calculationtask
                 SET status = :status,
                     result_path = :result_path,
                     result_distance = :result_distance,
+                    result_waypoints_data = :result_waypoints_data, -- НОВОЕ В SQL
+                    vessel_speed_knots = :vessel_speed_knots,       -- НОВОЕ В SQL
                     error_message = :error_message,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE task_id = :task_id
@@ -285,6 +290,12 @@ def update_calculation_task(
                 if result_path is not None
                 else None,
                 "result_distance": result_distance,
+                "result_waypoints_data": json.dumps(
+                    result_waypoints_data
+                )  # НОВОЕ В PARAM
+                if result_waypoints_data is not None
+                else None,
+                "vessel_speed_knots": vessel_speed_knots,  # НОВОЕ В PARAM
                 "error_message": error_message,
             }
             db.execute(query, params)
@@ -295,7 +306,7 @@ def update_calculation_task(
         print(f"Database error updating task {task_id}: {e}")
         if isinstance(e, NoSuchTableError):
             print(
-                f"CRITICAL: Table 'tasks_calculationtask' not found during update for task {task_id}. Check migrations."  # ИЗМЕНЕНО
+                f"CRITICAL: Table 'tasks_calculationtask' not found during update for task {task_id}. Check migrations."
             )
     except Exception as e:
         print(f"Unexpected error updating task {task_id}: {e}")
@@ -305,7 +316,6 @@ def update_calculation_task(
 # --- Пример использования (для тестирования этого модуля отдельно) ---
 if __name__ == "__main__":
     print("Running db_interface.py as a standalone script for testing.")
-    # Обратите внимание, что здесь тоже имя таблицы изменено в выводе
     if not check_db_connection():
         print("Failed to connect to the database or table 'ports_port' not found.")
     else:
@@ -327,6 +337,8 @@ if __name__ == "__main__":
             print("No ports found (or table empty/non-existent).")
 
         print("\n--- Testing get_segments_for_port(1) ---")
+        # Для этого теста нужен порт с ID 1 и исходящие из него сегменты.
+        # В реальной БД Django это будут записи.
         if port1:
             segments_from_port1 = get_segments_for_port(1)
             if segments_from_port1:
@@ -338,3 +350,30 @@ if __name__ == "__main__":
                 )
         else:
             print("Skipping get_segments_for_port(1) because port 1 was not found.")
+
+        # Пример использования update_calculation_task (предполагает, что у вас есть задача с таким UUID)
+        # Этот блок закомментирован, так как для его работы нужна существующая запись в tasks_calculationtask
+        # и реальный UUID.
+        # try:
+        #     # Подставьте реальный UUID задачи из вашей БД
+        #     test_task_id = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        #     print(f"\n--- Testing update_calculation_task for {test_task_id} ---")
+        #     # Пример обновления:
+        #     success = update_calculation_task(
+        #         task_id=test_task_id,
+        #         status="COMPLETED",
+        #         result_path=[1, 2, 3],
+        #         result_distance=150.75,
+        #         vessel_speed_knots=10.0,
+        #         result_waypoints_data=[
+        #             {"id": 1, "name": "Port A", "ETA": "2024-01-01T10:00:00", "ETD": "2024-01-01T10:00:00"},
+        #             {"id": 2, "name": "Port B", "ETA": "2024-01-01T15:00:00", "ETD": "2024-01-01T15:00:00"},
+        #             {"id": 3, "name": "Port C", "ETA": "2024-01-01T20:00:00", "ETD": "2024-01-01T20:00:00"}
+        #         ]
+        #     )
+        #     if success:
+        #         print(f"Task {test_task_id} updated successfully.")
+        #     else:
+        #         print(f"Failed to update task {test_task_id}.")
+        # except Exception as e:
+        #     print(f"Error during update_calculation_task test: {e}")

@@ -1,34 +1,36 @@
-# RoutesManagementService/Dockerfile
-
-FROM python:3.12-slim-bullseye
+# syntax=docker/dockerfile:1
+FROM python:3.13-alpine
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
-ENV DJANGO_SETTINGS_MODULE project_config.settings.production
-
-# Установка системных зависимостей
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        gnupg curl lsb-release ca-certificates \
-        build-essential python3-dev libsasl2-dev \
-        postgresql-client \
-    && \
-    curl -fsSL https://packages.confluent.io/clients/deb/archive.key | gpg --dearmor -o /usr/share/keyrings/confluent-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/confluent-archive-keyring.gpg] https://packages.confluent.io/clients/deb $(lsb_release -cs) main" > /etc/apt/sources.list.d/confluent.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends librdkafka-dev && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Добавляем wait-for-it.sh
-ADD https://github.com/vishnubob/wait-for-it/raw/master/wait-for-it.sh /usr/local/bin/wait-for-it.sh
-RUN chmod +x /usr/local/bin/wait-for-it.sh
+ENV DJANGO_SETTINGS_MODULE project_config.settings
 
 WORKDIR /app
 
+RUN pip install uv
+
+RUN apk add --no-cache \
+    build-base \
+    python3-dev \
+    postgresql-dev \
+    postgresql-client \
+    linux-headers \
+    librdkafka-dev \
+    cyrus-sasl-dev \
+&& \
+rm -rf /var/cache/apk/*
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install -r requirements.txt --system
 
 COPY . .
 
+# Копируем entrypoint.sh и делаем его исполняемым
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 8000
-# CMD будет определен в docker-compose.yaml
+
+# УДАЛИТЕ ОТСЮДА СТРОКИ ENTRYPOINT и CMD
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# CMD ["gunicorn", "project_config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

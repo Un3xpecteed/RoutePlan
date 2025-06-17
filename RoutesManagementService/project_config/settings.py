@@ -30,6 +30,12 @@ INSTALLED_APPS = [
     "rest_framework",
 ]
 
+LOGIN_REDIRECT_URL = "/tasks/create/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+LOGIN_URL = (
+    "/accounts/login/"  # <-- Убедитесь, что это соответствует вашему URL для логина
+)
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -91,6 +97,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

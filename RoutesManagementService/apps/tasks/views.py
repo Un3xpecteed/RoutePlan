@@ -1,41 +1,36 @@
 import logging
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse  # Убедись, что reverse импортирован
+from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.views import View
 
-# Импортируем модели и продюсер из других приложений
 from apps.ports.models import Port
-from apps.tasks.kafka_producer import (
-    send_calculation_request,  # Из приложения 'routes'
-)
-from apps.tasks.models import (
-    CalculationTask,  # Модель CalculationTask из приложения 'routes'
-)
+from apps.tasks.kafka_producer import send_calculation_request
+from apps.tasks.models import CalculationTask
+from apps.users.models import CustomUser
 
-# Импортируем форму из текущего приложения 'tasks'
-from .forms import (
-    RouteCalculationForm,  # Предполагаем, что forms.py в apps/tasks/forms.py
-)
-
-# TODO: Когда будет Redis, раскомментируй и убедись в правильности пути
-# from apps.routes.redis_client import get_task_status_from_redis, clear_task_status_from_redis, redis_client
+from .forms import RouteCalculationForm
 
 logger = logging.getLogger(__name__)
 
 
+@method_decorator(login_required, name="dispatch")
 class CreateCalculationTaskView(View):
-    # Путь к шаблону. Например, 'tasks/create_task_form.html'
-    # Убедись, что этот шаблон существует в apps/tasks/templates/tasks/
-    # или в глобальной директории шаблонов templates/tasks/
     template_name = "tasks/create_task_form.html"
 
     def get(self, request, *args, **kwargs):
         form = RouteCalculationForm()
         recent_tasks = CalculationTask.objects.order_by("-created_at")[:5]
-        context = {"form": form, "recent_tasks": recent_tasks}
+        context = {
+            "form": form,
+            "recent_tasks": recent_tasks,
+            "is_captain": request.user.is_authenticated
+            and request.user.role == CustomUser.Roles.CAPTAIN,
+        }
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
@@ -43,17 +38,36 @@ class CreateCalculationTaskView(View):
         if form.is_valid():
             start_port = form.cleaned_data["start_port"]
             end_port = form.cleaned_data["end_port"]
+            vessel_speed_knots = form.cleaned_data.get("vessel_speed_knots")
+
+            if vessel_speed_knots is not None:
+                if not (
+                    request.user.is_authenticated
+                    and request.user.role == CustomUser.Roles.CAPTAIN
+                ):
+                    messages.error(
+                        request,
+                        "Только Капитан может указывать скорость судна для расчета времени.",
+                    )
+                    vessel_speed_knots = None
+                elif vessel_speed_knots <= 0:
+                    messages.error(
+                        request, "Скорость судна должна быть положительным числом."
+                    )
+                    vessel_speed_knots = None
 
             task = CalculationTask.objects.create(
                 start_port=start_port,
                 end_port=end_port,
-                status=CalculationTask.StatusChoices.PENDING,  # Используем Model.InnerEnum.VALUE
+                vessel_speed_knots=vessel_speed_knots,
+                status=CalculationTask.StatusChoices.PENDING,
             )
 
             kafka_send_successful = send_calculation_request(
                 task_id=str(task.task_id),
                 start_port_id=start_port.id,
                 end_port_id=end_port.id,
+                vessel_speed_knots=vessel_speed_knots,
             )
 
             if kafka_send_successful:
@@ -61,14 +75,11 @@ class CreateCalculationTaskView(View):
                     request,
                     f"Задача расчета маршрута {task.task_id} успешно отправлена в обработку.",
                 )
-                # URL 'task_status' находится в приложении 'routes' (согласно твоему apps/routes/urls.py)
                 return redirect(
-                    reverse("routes:task_status", kwargs={"task_id": task.task_id})
+                    reverse("tasks:task_status", kwargs={"task_id": task.task_id})
                 )
             else:
-                task.status = (
-                    CalculationTask.StatusChoices.FAILED
-                )  # Используем Model.InnerEnum.VALUE
+                task.status = CalculationTask.StatusChoices.FAILED
                 task.error_message = (
                     "Ошибка: Не удалось отправить задачу в очередь обработки Kafka."
                 )
@@ -79,28 +90,26 @@ class CreateCalculationTaskView(View):
                 )
 
         recent_tasks = CalculationTask.objects.order_by("-created_at")[:5]
-        context = {"form": form, "recent_tasks": recent_tasks}
+        context = {
+            "form": form,
+            "recent_tasks": recent_tasks,
+            "is_captain": request.user.is_authenticated
+            and request.user.role == CustomUser.Roles.CAPTAIN,
+        }
         return render(request, self.template_name, context)
 
 
+@method_decorator(login_required, name="dispatch")
 class CalculationTaskStatusView(View):
-    template_name = "tasks/task_status.html"  # Шаблон в apps/tasks/templates/tasks/
+    template_name = "tasks/task_status.html"
 
     def get(self, request, task_id, *args, **kwargs):
         task_db_obj = get_object_or_404(CalculationTask, task_id=task_id)
 
-        final_task_data_for_template = {}
-
-        # TODO: Логика для Redis
-        # source_data = "db"
-        # redis_status_data = get_task_status_from_redis(str(task_id))
-        # if redis_status_data and redis_status_data.get('status_code') not in [
-        #     CalculationTask.StatusChoices.COMPLETED, CalculationTask.StatusChoices.FAILED
-        # ]:
-        #     final_task_data_for_template = { ... из Redis ... , "source": "redis"}
-        #     source_data = "redis"
-        #     if request.headers.get("x-requested-with") == "XMLHttpRequest":
-        #         return JsonResponse(final_task_data_for_template)
+        # !!! ДОБАВЛЕНА СТРОКА ДЛЯ ОТЛАДКИ !!!
+        logger.info(
+            f"Task {task_id} result_waypoints_data from DB: {task_db_obj.result_waypoints_data}"
+        )
 
         path_ports_details = []
         if (
@@ -123,10 +132,13 @@ class CalculationTaskStatusView(View):
                                 }
                             )
                         else:
+                            # Это для случая, если порт найден в пути, но не в базе (странная ситуация)
                             path_ports_details.append(
                                 {
                                     "id": port_id_in_path,
                                     "name": f"Порт ID {port_id_in_path} не найден",
+                                    "latitude": None,  # Добавил, чтобы не было undefined
+                                    "longitude": None,  # Добавил, чтобы не было undefined
                                 }
                             )
                 else:
@@ -142,11 +154,13 @@ class CalculationTaskStatusView(View):
         db_sourced_data = {
             "task_id": str(task_db_obj.task_id),
             "status_code": task_db_obj.status,
-            "status_display": task_db_obj.get_status_display(),  # Метод модели Django
+            "status_display": task_db_obj.get_status_display(),
             "start_port_name": task_db_obj.start_port.name,
             "end_port_name": task_db_obj.end_port.name,
+            "vessel_speed_knots": task_db_obj.vessel_speed_knots,
             "result_path_details": path_ports_details,
             "result_distance": task_db_obj.result_distance,
+            "result_waypoints_data": task_db_obj.result_waypoints_data,  # Данные уже здесь
             "error_message": task_db_obj.error_message,
             "created_at": task_db_obj.created_at.isoformat()
             if task_db_obj.created_at
@@ -158,16 +172,10 @@ class CalculationTaskStatusView(View):
         }
 
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
-            # TODO: Если задача COMPLETED/FAILED, можно очистить из Redis
-            # if task_db_obj.status in [CalculationTask.StatusChoices.COMPLETED, CalculationTask.StatusChoices.FAILED]:
-            #     if redis_client: clear_task_status_from_redis(str(task_db_obj.task_id))
             return JsonResponse(db_sourced_data)
-
-        if not final_task_data_for_template:
-            final_task_data_for_template = db_sourced_data
 
         context = {
             "task_db_obj": task_db_obj,
-            "task_data": final_task_data_for_template,
+            "task_data": db_sourced_data,
         }
         return render(request, self.template_name, context)

@@ -1,19 +1,24 @@
+# RoutesManagementService/project_config/urls.py
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import HttpResponse  # Импортируем HttpResponse для health check
+from django.http import JsonResponse  # Импортируем
 from django.urls import include, path
 
 
-# Функция-представление для health check
-def health_check_view(request):
-    return HttpResponse("OK", status=200)
+# Простой Health Check Endpoint
+def health_check(request):
+    return JsonResponse({"status": "healthy"})
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api-auth/", include("rest_framework.urls")),
-    # Эндпоинт для health check
-    path("health/", health_check_view),
-    # --- ДОБАВЬТЕ ЭТУ СТРОКУ ---
-    path("routes-task/", include("apps.routes.urls")),
-    # --- КОНЕЦ ДОБАВЛЕНИЯ ---
+    path("accounts/", include("django.contrib.auth.urls")),
+    path("users/", include("apps.users.urls")),
+    path("tasks/", include("apps.tasks.urls")),
+    # path("", include("apps.routes.urls")), # Если это ваш корневой роут
+    path("health/", health_check, name="health_check"),  # Новый эндпоинт
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

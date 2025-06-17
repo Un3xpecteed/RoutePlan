@@ -1,28 +1,63 @@
+{# RoutesManagementService/templates/tasks/create_task_form.html #}
 {% extends "base.html" %}
+{# УДАЛИТЬ ЭТУ СТРОКУ: {% load custom_filters %} #}
 
 {% block title %}Новый расчет маршрута{% endblock %}
 
 {% block content %}
-<h2>Создать задачу для расчета маршрута</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Отправить на расчет</button>
-</form>
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">Создать задачу для расчета маршрута</h2>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
 
-{% if recent_tasks %}
-    <h3>Последние задачи:</h3>
-    <ul>
-        {% for task in recent_tasks %}
-            <li>
-                <a href="{% url 'routes:task_status' task.task_id %}">
-                    Задача {{ task.task_id|truncatechars:8 }}...
-                </a> 
-                ({{ task.start_port.name }} -> {{ task.end_port.name }}) - 
-                <strong>{{ task.get_status_display }}</strong>
-                <small>({{ task.created_at|date:"d.m.Y H:i" }})</small>
-            </li>
-        {% endfor %}
-    </ul>
-{% endif %}
+            {# Поле "Порт отправления" #}
+            <div class="mb-3">
+                <label for="{{ form.start_port.id_for_label }}" class="form-label">Порт отправления</label>
+                {{ form.start_port }} {# <--- Рендерим поле без всяких фильтров #}
+                {% if form.start_port.errors %}
+                    <div class="invalid-feedback d-block">{{ form.start_port.errors }}</div>
+                {% endif %}
+            </div>
+
+            {# Поле "Порт назначения" #}
+            <div class="mb-3">
+                <label for="{{ form.end_port.id_for_label }}" class="form-label">Порт назначения</label>
+                {{ form.end_port }} {# <--- Рендерим поле без всяких фильтров #}
+                {% if form.end_port.errors %}
+                    <div class="invalid-feedback d-block">{{ form.end_port.errors }}</div>
+                {% endif %}
+            </div>
+
+            {# Условное отображение поля "Скорость судна" #}
+            {% if is_captain %}
+            <div class="mb-3">
+                <label for="{{ form.vessel_speed_knots.id_for_label }}" class="form-label">Скорость судна (узлы)</label>
+                {{ form.vessel_speed_knots }} {# <--- Рендерим поле без всяких фильтров #}
+                <div class="form-text text-muted">{{ form.vessel_speed_knots.help_text }}</div>
+                {% if form.vessel_speed_knots.errors %}
+                    <div class="invalid-feedback d-block">{{ form.vessel_speed_knots.errors }}</div>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="text-muted">Войдите как Капитан, чтобы получить возможность указывать скорость судна для расчета времени.</p>
+            {% endif %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-success mt-3">Отправить на расчет</button>
+        </form>
+    </div>
+</div>
+
+{# ... остальной код шаблона (Recent Tasks) ... #}
+
 {% endblock %}

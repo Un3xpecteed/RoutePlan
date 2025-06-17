@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
@@ -34,14 +36,14 @@ services:
     hostname: db
     volumes: [postgres_data:/var/lib/postgresql/data/]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
     ports: ["${DATABASE_HOST_PORT:-5432}:5432"]
     networks: [routeplan_network]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -q"]
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME} -q"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -65,66 +67,48 @@ services:
       context: ./RoutesManagementService
       dockerfile: Dockerfile
     container_name: routes_management_app
-    # ВРЕМЕННОЕ ИЗМЕНЕНИЕ: makemigrations и migrate каждый раз при запуске
-    command: >
-      sh -c "DJANGO_SETTINGS_MODULE=project_config.settings python manage.py makemigrations && \
-             DJANGO_SETTINGS_MODULE=project_config.settings python manage.py migrate --noinput && \
-             DJANGO_SETTINGS_MODULE=project_config.settings gunicorn project_config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
     volumes: ["./RoutesManagementService:/app"]
     ports: ["8000:8000"]
+    env_file:
+      - .env
     environment:
       PYTHONUNBUFFERED: 1
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
-      KAFKA_BROKER_URL: ${KAFKA_BROKER_URL}
-      KAFKA_REQUEST_TOPIC: ${KAFKA_REQUEST_TOPIC}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-    depends_on:
-      db: {condition: service_healthy} # Ждет, пока БД будет полностью готова
-      kafka: {condition: service_started}
-      redis: {condition: service_healthy}
-    networks: [routeplan_network]
-    restart: unless-stopped
-    healthcheck: # ИСПРАВЛЕННЫЙ HEALTHCHECK НА /health/
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 45s # Даем достаточно времени для миграций и запуска Gunicorn
-
-  routes_calculator_service:
-    build:
-      context: ./RoutesCalculatorService
-      dockerfile: Dockerfile
-      no_cache: true
-    container_name: routes_calculator_app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
-    volumes: ["./RoutesCalculatorService:/app"]
-    ports: ["8001:8001"]
-    environment:
-      PYTHONUNBUFFERED: 1
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      KAFKA_BROKER_URL: ${KAFKA_BROKER_URL}
-      KAFKA_REQUEST_TOPIC: ${KAFKA_REQUEST_TOPIC}
-      KAFKA_CONSUMER_GROUP_ID: ${KAFKA_CONSUMER_GROUP_ID}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
+      DJANGO_SETTINGS_MODULE: project_config.settings
+      # ... остальные переменные окружения, которые читаются из .env
     depends_on:
       db: {condition: service_healthy}
       kafka: {condition: service_started}
       redis: {condition: service_healthy}
-      routes_management_service: {condition: service_healthy} # Ждем, пока Django не станет HEALTHY
+    networks: [routeplan_network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    # !!! ЭТО КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Запускаем entrypoint.sh и затем Gunicorn в ОДНОЙ КОМАНДЕ !!!
+    command: >
+      sh -c "/usr/local/bin/entrypoint.sh && \
+             gunicorn project_config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+  routes_calculator_service:
+    build:
+      context: ./RoutesCalculatorService
+      dockerfile: Dockerfile
+    container_name: routes_calculator_app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+    volumes: ["./RoutesCalculatorService:/app"]
+    ports: ["8001:8001"]
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: 1
+      # ... остальные переменные окружения, которые читаются из .env
+    depends_on:
+      db: {condition: service_healthy}
+      kafka: {condition: service_started}
+      redis: {condition: service_healthy}
+      # routes_management_service: {condition: service_healthy} # УДАЛИТЕ эту зависимость, если она у вас есть
     networks: [routeplan_network]
     restart: unless-stopped
 
