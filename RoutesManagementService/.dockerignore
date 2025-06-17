@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv/
+venv/
+env/
+.git/
+.vscode/
+.idea/
+*.sqlite3
+*.log
+# Добавь другие ненужные файлы/папки, специфичные для Django
+# например, media/, staticfiles_collected/ (если они не должны быть в образе)
+# Dockerfile # Сам Dockerfile не нужен внутри образа
+# compose.yaml # Файл Docker Compose

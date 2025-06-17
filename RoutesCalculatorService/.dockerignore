@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv/
+venv/
+env/
+.git/
+.vscode/
+.idea/
+*.log
+# Dockerfile # Сам Dockerfile не нужен внутри образа
+# compose.yaml # Файл Docker Compose

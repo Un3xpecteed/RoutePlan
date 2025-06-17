@@ -1,0 +1,184 @@
+[
+  {
+    "model": "ports.segment",
+    "pk": 1,
+    "fields": {
+      "PortOfDeparture": 1, "PortOfArrival": 2, "distance": 80, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 2,
+    "fields": {
+      "PortOfDeparture": 2, "PortOfArrival": 1, "distance": 80, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 3,
+    "fields": {
+      "PortOfDeparture": 1, "PortOfArrival": 3, "distance": 260, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 4,
+    "fields": {
+      "PortOfDeparture": 3, "PortOfArrival": 1, "distance": 260, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 5,
+    "fields": {
+      "PortOfDeparture": 1, "PortOfArrival": 8, "distance": 230, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 6,
+    "fields": {
+      "PortOfDeparture": 8, "PortOfArrival": 1, "distance": 230, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 7,
+    "fields": {
+      "PortOfDeparture": 1, "PortOfArrival": 10, "distance": 280, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 8,
+    "fields": {
+      "PortOfDeparture": 10, "PortOfArrival": 1, "distance": 280, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 9,
+    "fields": {
+      "PortOfDeparture": 3, "PortOfArrival": 14, "distance": 250, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 10,
+    "fields": {
+      "PortOfDeparture": 14, "PortOfArrival": 3, "distance": 250, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 11,
+    "fields": {
+      "PortOfDeparture": 4, "PortOfArrival": 6, "distance": 300, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 12,
+    "fields": {
+      "PortOfDeparture": 6, "PortOfArrival": 4, "distance": 300, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 13,
+    "fields": {
+      "PortOfDeparture": 4, "PortOfArrival": 11, "distance": 170, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 14,
+    "fields": {
+      "PortOfDeparture": 11, "PortOfArrival": 4, "distance": 170, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 15,
+    "fields": {
+      "PortOfDeparture": 5, "PortOfArrival": 9, "distance": 300, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 16,
+    "fields": {
+      "PortOfDeparture": 9, "PortOfArrival": 5, "distance": 300, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 17,
+    "fields": {
+      "PortOfDeparture": 5, "PortOfArrival": 12, "distance": 350, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 18,
+    "fields": {
+      "PortOfDeparture": 12, "PortOfArrival": 5, "distance": 350, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 19,
+    "fields": {
+      "PortOfDeparture": 10, "PortOfArrival": 15, "distance": 100, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 20,
+    "fields": {
+      "PortOfDeparture": 15, "PortOfArrival": 10, "distance": 100, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 21,
+    "fields": {
+      "PortOfDeparture": 6, "PortOfArrival": 19, "distance": 320, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 22,
+    "fields": {
+      "PortOfDeparture": 19, "PortOfArrival": 6, "distance": 320, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 23,
+    "fields": {
+      "PortOfDeparture": 11, "PortOfArrival": 16, "distance": 180, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 24,
+    "fields": {
+      "PortOfDeparture": 16, "PortOfArrival": 11, "distance": 180, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 25,
+    "fields": {
+      "PortOfDeparture": 2, "PortOfArrival": 17, "distance": 30, "average_speed": 0, "estimated_time": 0
+    }
+  },
+  {
+    "model": "ports.segment",
+    "pk": 26,
+    "fields": {
+      "PortOfDeparture": 17, "PortOfArrival": 2, "distance": 30, "average_speed": 0, "estimated_time": 0
+    }
+  }
+]

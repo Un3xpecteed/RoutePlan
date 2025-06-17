@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Новый расчет маршрута{% endblock %}
+
+{% block content %}
+<h2>Создать задачу для расчета маршрута</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Отправить на расчет</button>
+</form>
+
+{% if recent_tasks %}
+    <h3>Последние задачи:</h3>
+    <ul>
+        {% for task in recent_tasks %}
+            <li>
+                <a href="{% url 'routes:task_status' task.task_id %}">
+                    Задача {{ task.task_id|truncatechars:8 }}...
+                </a> 
+                ({{ task.start_port.name }} -> {{ task.end_port.name }}) - 
+                <strong>{{ task.get_status_display }}</strong>
+                <small>({{ task.created_at|date:"d.m.Y H:i" }})</small>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}

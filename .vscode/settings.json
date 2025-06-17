@@ -16,7 +16,7 @@
     }
   },
 
-  "terminal.integrated.cwd": "${workspaceFolder}/route_plan",
+  "terminal.integrated.cwd": "${workspaceFolder}", 
 
   // --- Дополнительно (рекомендуется) ---
   // Чтобы избежать конфликтов со старыми настройками форматирования Python

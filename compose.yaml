@@ -1,0 +1,136 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    hostname: zookeeper
+    ports: ["2181:2181"]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [routeplan_network]
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    hostname: kafka
+    ports: ["9092:9092", "29092:29092"]
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    networks: [routeplan_network]
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    container_name: routeplan_db
+    hostname: db
+    volumes: [postgres_data:/var/lib/postgresql/data/]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports: ["${DATABASE_HOST_PORT:-5432}:5432"]
+    networks: [routeplan_network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -q"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    hostname: redis
+    ports: ["6379:6379"]
+    networks: [routeplan_network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  routes_management_service: # Django сервис
+    build:
+      context: ./RoutesManagementService
+      dockerfile: Dockerfile
+    container_name: routes_management_app
+    # ВРЕМЕННОЕ ИЗМЕНЕНИЕ: makemigrations и migrate каждый раз при запуске
+    command: >
+      sh -c "DJANGO_SETTINGS_MODULE=project_config.settings python manage.py makemigrations && \
+             DJANGO_SETTINGS_MODULE=project_config.settings python manage.py migrate --noinput && \
+             DJANGO_SETTINGS_MODULE=project_config.settings gunicorn project_config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    volumes: ["./RoutesManagementService:/app"]
+    ports: ["8000:8000"]
+    environment:
+      PYTHONUNBUFFERED: 1
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      KAFKA_BROKER_URL: ${KAFKA_BROKER_URL}
+      KAFKA_REQUEST_TOPIC: ${KAFKA_REQUEST_TOPIC}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+    depends_on:
+      db: {condition: service_healthy} # Ждет, пока БД будет полностью готова
+      kafka: {condition: service_started}
+      redis: {condition: service_healthy}
+    networks: [routeplan_network]
+    restart: unless-stopped
+    healthcheck: # ИСПРАВЛЕННЫЙ HEALTHCHECK НА /health/
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 45s # Даем достаточно времени для миграций и запуска Gunicorn
+
+  routes_calculator_service:
+    build:
+      context: ./RoutesCalculatorService
+      dockerfile: Dockerfile
+      no_cache: true
+    container_name: routes_calculator_app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+    volumes: ["./RoutesCalculatorService:/app"]
+    ports: ["8001:8001"]
+    environment:
+      PYTHONUNBUFFERED: 1
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      KAFKA_BROKER_URL: ${KAFKA_BROKER_URL}
+      KAFKA_REQUEST_TOPIC: ${KAFKA_REQUEST_TOPIC}
+      KAFKA_CONSUMER_GROUP_ID: ${KAFKA_CONSUMER_GROUP_ID}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+    depends_on:
+      db: {condition: service_healthy}
+      kafka: {condition: service_started}
+      redis: {condition: service_healthy}
+      routes_management_service: {condition: service_healthy} # Ждем, пока Django не станет HEALTHY
+    networks: [routeplan_network]
+    restart: unless-stopped
+
+volumes:
+  postgres_data: {}
+
+networks:
+  routeplan_network:
+    driver: bridge
