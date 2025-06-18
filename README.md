@@ -58,7 +58,9 @@ KAFKA_REQUEST_TOPIC=route_calculation_requests
 KAFKA_CONSUMER_GROUP_ID=route_calculator_group_1
 
 
-## Функциональное тестирование (Веб-интерфейс)
+
+
+### 2. Функциональное тестирование (Веб-интерфейс)
 
 После успешного развертывания, доступ к основному веб-приложению Django осуществляется по адресу `http://localhost:8000/`.
 
