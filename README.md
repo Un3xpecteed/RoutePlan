@@ -56,6 +56,7 @@ DATABASE_NAME=routeplan
 KAFKA_BROKER_URL=kafka:9092
 KAFKA_REQUEST_TOPIC=route_calculation_requests
 KAFKA_CONSUMER_GROUP_ID=route_calculator_group_1
+```
 
 
 
