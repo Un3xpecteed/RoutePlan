@@ -18,20 +18,15 @@ logger = logging.getLogger(__name__)
 async def lifespan(app_instance: FastAPI):
     logger.info("Lifespan: Запуск FastAPI приложения (Route Calculator Service)...")
 
-    # УДАЛЯЕМ ЭТУ СТРОКУ: await asyncio.sleep(20) # Больше не нужна, полагаемся на depends_on и цикл ожидания ниже
-
     logger.info(
         "Lifespan: Проверка соединения с базой данных и ожидание готовности таблиц..."
     )
 
-    # УВЕЛИЧИВАЕМ КОЛИЧЕСТВО ПОПЫТОК И/ИЛИ ЗАДЕРЖКУ
-    retries = 60  # Увеличено с 10 до 60 (суммарно 5 минут ожидания)
-    delay = 5  # секунд. Можно увеличить до 10, если 5 минут все равно мало.
+    retries = 60
+    delay = 5
 
     for i in range(retries):
-        if await asyncio.to_thread(
-            check_db_connection
-        ):  # check_db_connection уже включает проверку таблицы
+        if await asyncio.to_thread(check_db_connection):
             logger.info(
                 "Lifespan: Соединение с базой данных успешно проверено и таблицы готовы."
             )

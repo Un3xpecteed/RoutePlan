@@ -64,13 +64,13 @@ services:
 
   routes_management_service: # Django сервис
     build:
-      context: ./RoutesManagementService
+      context: ../services/RoutesManagementService
       dockerfile: Dockerfile
     container_name: routes_management_app
-    volumes: ["./RoutesManagementService:/app"]
+    volumes: ["../services/RoutesManagementService:/app"]
     ports: ["8000:8000"]
     env_file:
-      - .env
+      - ./.env
     environment:
       PYTHONUNBUFFERED: 1
       DJANGO_SETTINGS_MODULE: project_config.settings
@@ -93,11 +93,11 @@ services:
              gunicorn project_config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
   routes_calculator_service:
     build:
-      context: ./RoutesCalculatorService
+      context: ../services/RoutesCalculatorService
       dockerfile: Dockerfile
     container_name: routes_calculator_app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
-    volumes: ["./RoutesCalculatorService:/app"]
+    volumes: ["../services/RoutesCalculatorService:/app"]
     ports: ["8001:8001"]
     env_file:
       - .env

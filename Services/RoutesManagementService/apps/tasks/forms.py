@@ -21,7 +21,6 @@ class RouteCalculationForm(forms.Form):
         help_text="Оставьте пустым для расчета только расстояния. Для расчета времени введите скорость (только для Капитанов).",
     )
 
-    # !!! ЭТОТ МЕТОД КРИТИЧЕСКИ ВАЖЕН ДЛЯ ДОБАВЛЕНИЯ КЛАССОВ !!!
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["start_port"].widget.attrs.update({"class": "form-select"})

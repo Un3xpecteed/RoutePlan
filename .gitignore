@@ -1,23 +1,25 @@
-# Виртуальные окружения
-.venv/
+# .gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 env/
 venv/
-
-# Файлы с переменными окружения
-.env
-
-# Папки служебные Python пакетов
-*.egg-info/
-
-# Кэш Python
-__pycache__/
-*.py[cod]
-
-# Логи
+*.env
+.idea/  # Если используете PyCharm
 *.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+uv.lock # Если uv.lock не общий для всех, а только локальный для сервисов
 
-# VS Code
-.vscode/
+# Docker
+*.env # Защита .env файла
 
-# macOS системные файлы
-.DS_Store
+# IDE-специфичные файлы
+.vscode/ # <--- ДОБАВЬТЕ ЭТУ СТРОКУ
+
+ops/.env

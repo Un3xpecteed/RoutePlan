@@ -106,7 +106,6 @@ class CalculationTaskStatusView(View):
     def get(self, request, task_id, *args, **kwargs):
         task_db_obj = get_object_or_404(CalculationTask, task_id=task_id)
 
-        # !!! ДОБАВЛЕНА СТРОКА ДЛЯ ОТЛАДКИ !!!
         logger.info(
             f"Task {task_id} result_waypoints_data from DB: {task_db_obj.result_waypoints_data}"
         )
@@ -132,13 +131,12 @@ class CalculationTaskStatusView(View):
                                 }
                             )
                         else:
-                            # Это для случая, если порт найден в пути, но не в базе (странная ситуация)
                             path_ports_details.append(
                                 {
                                     "id": port_id_in_path,
                                     "name": f"Порт ID {port_id_in_path} не найден",
-                                    "latitude": None,  # Добавил, чтобы не было undefined
-                                    "longitude": None,  # Добавил, чтобы не было undefined
+                                    "latitude": None,
+                                    "longitude": None,
                                 }
                             )
                 else:
@@ -160,7 +158,7 @@ class CalculationTaskStatusView(View):
             "vessel_speed_knots": task_db_obj.vessel_speed_knots,
             "result_path_details": path_ports_details,
             "result_distance": task_db_obj.result_distance,
-            "result_waypoints_data": task_db_obj.result_waypoints_data,  # Данные уже здесь
+            "result_waypoints_data": task_db_obj.result_waypoints_data,
             "error_message": task_db_obj.error_message,
             "created_at": task_db_obj.created_at.isoformat()
             if task_db_obj.created_at

@@ -1,10 +1,7 @@
-# RoutesCalculatorService/db_interface.py
-
 import json
 import os
 from typing import Any, Dict, List, Optional
 
-# Добавляем импорт psycopg2 напрямую
 import psycopg2
 from dotenv import load_dotenv
 from psycopg2 import Error as Psycopg2Error
@@ -16,15 +13,12 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy.orm import sessionmaker
 
-# Загрузка переменных окружения.
-# Ищем .env на один уровень выше (в корне проекта RoutePlan)
 env_path_option = os.path.join(os.path.dirname(__file__), "..", ".env")
 
 if os.path.exists(env_path_option):
     load_dotenv(dotenv_path=env_path_option)
 
 
-# Данные для подключения к БД
 DATABASE_USER = os.getenv("DATABASE_USER", "db_user")
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "123")
 DATABASE_HOST = os.getenv("DATABASE_HOST", "db")
@@ -33,21 +27,15 @@ DATABASE_NAME = os.getenv("DATABASE_NAME", "routeplan")
 
 _DATABASE_URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 
-# Глобальные переменные для объектов Engine и SessionLocal.
 _engine = None
 _SessionLocal = None
 
 
 def _get_engine():
-    """
-    Лениво инициализирует и возвращает объект SQLAlchemy Engine.
-    Если engine уже создан, возвращает существующий.
-    """
     global _engine
     if _engine is None:
         try:
             _engine = create_engine(_DATABASE_URL, pool_pre_ping=True)
-            # print(f"SQLAlchemy engine created for {_DATABASE_URL}") # Можно раскомментировать для отладки
         except Exception as e:
             print(f"Error creating SQLAlchemy engine for {_DATABASE_URL}: {e}")
             raise
@@ -55,11 +43,6 @@ def _get_engine():
 
 
 def get_db_session_new():
-    """
-    Возвращает новую сессию базы данных из SessionLocal.
-    Создает SessionLocal при первом вызове.
-    Должна быть вызвана в контекстном менеджере.
-    """
     global _SessionLocal
     if _SessionLocal is None:
         _SessionLocal = sessionmaker(
@@ -69,10 +52,6 @@ def get_db_session_new():
 
 
 def get_port_by_id(port_id: int) -> Optional[Dict[str, Any]]:
-    """
-    Извлекает данные порта по его ID.
-    Возвращает словарь или None, если порт не найден.
-    """
     try:
         with get_db_session_new() as db:
             query = text(
@@ -100,10 +79,6 @@ def get_port_by_id(port_id: int) -> Optional[Dict[str, Any]]:
 
 
 def get_all_ports_for_algorithm() -> List[Dict[str, Any]]:
-    """
-    Извлекает все порты (только id, name, latitude, longitude),
-    необходимые для инициализации словарей g_score и f_score в A*.
-    """
     ports_data = []
     try:
         with get_db_session_new() as db:
@@ -127,10 +102,6 @@ def get_all_ports_for_algorithm() -> List[Dict[str, Any]]:
 
 
 def get_segments_for_port(port_id: int) -> List[Dict[str, Any]]:
-    """
-    Извлекает все сегменты, исходящие из данного порта,
-    включая данные о порте назначения.
-    """
     segments_data = []
     try:
         with get_db_session_new() as db:
@@ -181,14 +152,8 @@ def get_segments_for_port(port_id: int) -> List[Dict[str, Any]]:
 
 
 def check_db_connection():
-    """
-    Функция для проверки соединения с БД и наличия одной из ключевых таблиц (ports_port).
-    Использует низкоуровневый psycopg2 для проверки существования таблицы.
-    """
     global _engine, _SessionLocal
 
-    # Закрываем существующий SQLAlchemy engine перед каждой попыткой проверки
-    # чтобы избежать кеширования устаревшей схемы.
     if _engine is not None:
         try:
             _engine.dispose()
@@ -200,7 +165,6 @@ def check_db_connection():
         _engine = None
         _SessionLocal = None
 
-    # --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Прямая проверка через psycopg2 ---
     conn = None
     cursor = None
     try:
@@ -210,13 +174,11 @@ def check_db_connection():
             password=DATABASE_PASSWORD,
             host=DATABASE_HOST,
             port=DATABASE_PORT,
-            # Добавляем опцию для изоляции транзакций, чтобы убедиться, что видим последние изменения
             options="-c default_transaction_read_only=off",
         )
-        conn.autocommit = True  # Делаем автокоммит, чтобы DDL были сразу видны
+        conn.autocommit = True
 
         cursor = conn.cursor()
-        # Проверяем, существует ли таблица в публичной схеме
         cursor.execute("""
             SELECT EXISTS (
                 SELECT 1
@@ -228,9 +190,6 @@ def check_db_connection():
 
         if table_exists:
             print("Table 'ports_port' found via direct psycopg2 check.")
-            # Теперь, когда мы знаем, что таблица существует, выполним запрос через SQLAlchemy
-            # чтобы убедиться, что основной функционал работает.
-            # Это может быть избыточно, но помогает убедиться, что SQLAlchemy не падает по другим причинам.
             with get_db_session_new() as db:
                 db.execute(text("SELECT 1 FROM ports_port LIMIT 1"))
             return True
@@ -262,14 +221,10 @@ def update_calculation_task(
     status: str,
     result_path: Optional[List[int]] = None,
     result_distance: Optional[float] = None,
-    result_waypoints_data: Optional[List[Dict[str, Any]]] = None,  # НОВОЕ ПОЛЕ
-    vessel_speed_knots: Optional[float] = None,  # НОВОЕ ПОЛЕ
+    result_waypoints_data: Optional[List[Dict[str, Any]]] = None,
+    vessel_speed_knots: Optional[float] = None,
     error_message: Optional[str] = None,
 ) -> bool:
-    """
-    Обновляет запись о задаче расчета в базе данных.
-    Имя таблицы 'tasks_calculationtask' предполагается.
-    """
     try:
         with get_db_session_new() as db:
             query = text("""
@@ -277,8 +232,8 @@ def update_calculation_task(
                 SET status = :status,
                     result_path = :result_path,
                     result_distance = :result_distance,
-                    result_waypoints_data = :result_waypoints_data, -- НОВОЕ В SQL
-                    vessel_speed_knots = :vessel_speed_knots,       -- НОВОЕ В SQL
+                    result_waypoints_data = :result_waypoints_data,
+                    vessel_speed_knots = :vessel_speed_knots,
                     error_message = :error_message,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE task_id = :task_id
@@ -290,12 +245,10 @@ def update_calculation_task(
                 if result_path is not None
                 else None,
                 "result_distance": result_distance,
-                "result_waypoints_data": json.dumps(
-                    result_waypoints_data
-                )  # НОВОЕ В PARAM
+                "result_waypoints_data": json.dumps(result_waypoints_data)
                 if result_waypoints_data is not None
                 else None,
-                "vessel_speed_knots": vessel_speed_knots,  # НОВОЕ В PARAM
+                "vessel_speed_knots": vessel_speed_knots,
                 "error_message": error_message,
             }
             db.execute(query, params)
@@ -313,7 +266,6 @@ def update_calculation_task(
     return False
 
 
-# --- Пример использования (для тестирования этого модуля отдельно) ---
 if __name__ == "__main__":
     print("Running db_interface.py as a standalone script for testing.")
     if not check_db_connection():
@@ -337,8 +289,6 @@ if __name__ == "__main__":
             print("No ports found (or table empty/non-existent).")
 
         print("\n--- Testing get_segments_for_port(1) ---")
-        # Для этого теста нужен порт с ID 1 и исходящие из него сегменты.
-        # В реальной БД Django это будут записи.
         if port1:
             segments_from_port1 = get_segments_for_port(1)
             if segments_from_port1:
@@ -350,30 +300,3 @@ if __name__ == "__main__":
                 )
         else:
             print("Skipping get_segments_for_port(1) because port 1 was not found.")
-
-        # Пример использования update_calculation_task (предполагает, что у вас есть задача с таким UUID)
-        # Этот блок закомментирован, так как для его работы нужна существующая запись в tasks_calculationtask
-        # и реальный UUID.
-        # try:
-        #     # Подставьте реальный UUID задачи из вашей БД
-        #     test_task_id = "a1b2c3d4-e5f6-7890-1234-567890abcdef"
-        #     print(f"\n--- Testing update_calculation_task for {test_task_id} ---")
-        #     # Пример обновления:
-        #     success = update_calculation_task(
-        #         task_id=test_task_id,
-        #         status="COMPLETED",
-        #         result_path=[1, 2, 3],
-        #         result_distance=150.75,
-        #         vessel_speed_knots=10.0,
-        #         result_waypoints_data=[
-        #             {"id": 1, "name": "Port A", "ETA": "2024-01-01T10:00:00", "ETD": "2024-01-01T10:00:00"},
-        #             {"id": 2, "name": "Port B", "ETA": "2024-01-01T15:00:00", "ETD": "2024-01-01T15:00:00"},
-        #             {"id": 3, "name": "Port C", "ETA": "2024-01-01T20:00:00", "ETD": "2024-01-01T20:00:00"}
-        #         ]
-        #     )
-        #     if success:
-        #         print(f"Task {test_task_id} updated successfully.")
-        #     else:
-        #         print(f"Failed to update task {test_task_id}.")
-        # except Exception as e:
-        #     print(f"Error during update_calculation_task test: {e}")

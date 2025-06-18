@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: routes-managemnet-service
+Version: 0.1.0
+Summary: Django backend for route management and API.
+Requires-Python: >=3.13
+Requires-Dist: confluent-kafka>=2.10.0
+Requires-Dist: django>=5.2.1
+Requires-Dist: djangorestframework>=3.16.0
+Requires-Dist: gunicorn>=23.0.0
+Requires-Dist: psycopg2-binary>=2.9.10
+Requires-Dist: python-dotenv>=1.1.0
+Requires-Dist: redis>=6.2.0
